@@ -4,7 +4,6 @@ from PyQt5.QtCore import QFileInfo, Qt, QSettings, QSize, QFile, QTextStream
 from PyQt5.QtWidgets import (QMainWindow, QTableView, QDialog, QGridLayout, QPushButton,QLineEdit, QWidget, QFileDialog, QComboBox, QMessageBox, QApplication)
 import sys
 
-###################################
 class MyWindow(QMainWindow):
     def __init__(self, parent=None):
         super(MyWindow, self).__init__()
@@ -15,7 +14,7 @@ class MyWindow(QMainWindow):
         self.viewer = QTableView()
         self.database = QtSql.QSqlDatabase.addDatabase('QSQLITE')
         self.model = QtSql.QSqlTableModel()
-        self.delrow = -1
+        self.row_to_delete = -1
         self.database_file = ""
         self.table_name = ""
         self.headers = []
@@ -24,45 +23,30 @@ class MyWindow(QMainWindow):
         self.viewer.verticalHeader().setVisible(False)
         self.setStyleSheet(stylesheet(self))        
         self.viewer.setModel(self.model)
-        self.viewer.clicked.connect(self.findrow)
-        self.viewer.selectionModel().selectionChanged.connect(self.getCellText)
+        self.viewer.clicked.connect(self.find_row)
+        self.viewer.selectionModel().selectionChanged.connect(self.cell_get_text)
          
-        self.dlg = QDialog()
+        self.dialig_window = QDialog()
         self.layout = QGridLayout()
         self.layout.addWidget(self.viewer,0, 0, 1, 4)
          
-        addatabasetn = QPushButton("insert row")
-        addatabasetn.setIcon(QIcon.fromTheme("add"))
-        addatabasetn.setFixedWidth(110)
-        addatabasetn.clicked.connect(self.addRow)
-        self.layout.addWidget(addatabasetn, 1, 0)
-        
-        # addColBtn = QPushButton("insert column")
-        # addColBtn.setIcon(QIcon.fromTheme("add"))
-        # addColBtn.setFixedWidth(110)
-        # addColBtn.clicked.connect(self.addColumn)
-        # self.layout.addWidget(addColBtn, 1, 1)
+        add_database_button = QPushButton("insert row")
+        add_database_button.setIcon(QIcon.fromTheme("add"))
+        add_database_button.setFixedWidth(120)
+        add_database_button.clicked.connect(self.add_row)
+        self.layout.addWidget(add_database_button, 1, 0)
          
-        delBtn = QPushButton("delete row")
-        delBtn.setIcon(QIcon.fromTheme("remove"))
-        delBtn.setFixedWidth(110)
-        delBtn.clicked.connect(self.deleteRow)
-        self.layout.addWidget(delBtn,1, 2)
+        delete_button = QPushButton("delete row")
+        delete_button.setIcon(QIcon.fromTheme("remove"))
+        delete_button.setFixedWidth(120)
+        delete_button.clicked.connect(self.deleteRow)
+        self.layout.addWidget(delete_button,1, 2)
  
         self.editor = QLineEdit()
-        self.editor.returnPressed.connect(self.editCell)
+        self.editor.returnPressed.connect(self.edit_cell)
         self.editor.setStatusTip("ENTER new value")
         self.editor.setToolTip("ENTER new value")
         self.layout.addWidget(self.editor,1, 3)
- 
-        # self.findfield = QLineEdit()
-        # self.findfield.addAction(QIcon.fromTheme("edit-find"), 0)
-        # self.findfield.returnPressed.connect(self.findCell)
-        # self.findfield.setFixedWidth(200)
-        # self.findfield.setPlaceholderText("find")
-        # self.findfield.setStatusTip("ENTER to find")
-        # self.findfield.setToolTip("ENTER to find")
-        # self.layout.addWidget(self.findfield,1, 3)
  
         self.myWidget = QWidget()
         self.myWidget.setLayout(self.layout)
@@ -73,130 +57,69 @@ class MyWindow(QMainWindow):
         self.setWindowIcon(QIcon.fromTheme("office-database"))
         self.setGeometry(20,20,600,450)
         self.setWindowTitle("SqliteEditor")
-        self.readSettings()
-        self.msg("Ready")
+        self.read_settings()
+        self.show_message("Ready")
         self.viewer.setFocus()
  
     def createToolbar(self):
-        self.actionOpen = QPushButton("Open database")
-        self.actionOpen.clicked.connect(self.open_file)
-        icon = QIcon.fromTheme("document-open")
-        self.actionOpen.setShortcut("Ctrl+O")
-        self.actionOpen.setShortcutEnabled(True)
-        self.actionOpen.setIcon(icon)
-        self.actionOpen.setObjectName("actionOpen")
-        self.actionOpen.setStatusTip("Open Database")
-        self.actionOpen.setToolTip("Open Database")
+        self.open_button = QPushButton("Open database")
+        self.open_button.clicked.connect(self.open_file)
+        self.open_button.setObjectName("open_button")
+        self.open_button.setStatusTip("Open Database")
+        self.open_button.setToolTip("Open Database")
  
-        self.actionHide = QPushButton()
-        self.actionHide.clicked.connect(self.toggleVerticalHeaders)
-        self.actionHide.setIcon(QIcon("show-less-fold-button.png"))
-        self.actionHide.setToolTip("toggle vertical Headers")
-        self.actionHide.setShortcut("F3")
-        self.actionHide.setShortcutEnabled(True)
-        self.actionHide.setStatusTip("toggle vertical Headers")
+        self.hide_button = QPushButton()
+        self.hide_button.clicked.connect(self.toggle_vertical_headers)
+        self.hide_button.setIcon(QIcon("show-less-fold-button.png"))
+        self.hide_button.setFixedWidth(25)
+        self.hide_button.setFixedHeight(25)
+        self.hide_button.setStatusTip("toggle vertical Headers")
  
-        # self.actionHeaders = QPushButton()
-        # self.actionHeaders.clicked.connect(self.selectedRowToHeaders)
-        # icon = QIcon.fromTheme("ok")
-        # self.actionHeaders.setIcon(QIcon("preview.png"))
-        # self.actionHeaders.setToolTip("selected row to headers")
-        # self.actionHeaders.setShortcut("F5")
-        # self.actionHeaders.setShortcutEnabled(True)
-        # self.actionHeaders.setStatusTip("selected row to headers")
+        self.preview_print_button = QPushButton()
+        self.preview_print_button.clicked.connect(self.handle_preview)
+        self.preview_print_button.setIcon(QIcon("preview.png"))
+        self.preview_print_button.setFixedWidth(25)
+        self.preview_print_button.setFixedHeight(25)
+        self.preview_print_button.setObjectName("preview_print_button")
+        self.preview_print_button.setStatusTip("Print Preview")
+        self.preview_print_button.setToolTip("Print Preview")
  
-        self.actionPreview = QPushButton()
-        self.actionPreview.clicked.connect(self.handlePreview)
-        self.actionPreview.setShortcut("Shift+Ctrl+P")
-        self.actionPreview.setShortcutEnabled(True)
-        self.actionPreview.setIcon(QIcon("preview.png"))
-        self.actionPreview.setObjectName("actionPreview")
-        self.actionPreview.setStatusTip("Print Preview")
-        self.actionPreview.setToolTip("Print Preview")
- 
-        self.actionPrint = QPushButton()
-        self.actionPrint.clicked.connect(self.handlePrint)
-        self.actionPrint.setShortcut("Shift+Ctrl+P")
-        self.actionPrint.setShortcutEnabled(True)
-        self.actionPrint.setIcon(QIcon("printing.png"))
-        self.actionPrint.setObjectName("actionPrint")
-        self.actionPrint.setStatusTip("Print")
-        self.actionPrint.setToolTip("Print")
+        self.print_button = QPushButton()
+        self.print_button.clicked.connect(self.handle_print)
+        self.print_button.setIcon(QIcon("printing.png"))
+        self.print_button.setFixedWidth(25)
+        self.print_button.setFixedHeight(25)
+        self.print_button.setObjectName("print_button")
+        self.print_button.setStatusTip("Print")
+        self.print_button.setToolTip("Print")
  
  
-        self.tb = self.addToolBar("ToolBar")
-        self.tb.setIconSize(QSize(16, 16))
-        self.tb.setMovable(False)
-        self.tb.addWidget(self.actionOpen)
-        self.tb.addSeparator()
-        self.tb.addWidget(self.actionPreview)
-        self.tb.addWidget(self.actionPrint)
+        self.toolbar = self.addToolBar("ToolBar")
+        self.toolbar.setIconSize(QSize(16, 16))
+        self.toolbar.setMovable(False)
+        self.toolbar.addWidget(self.open_button)
+        self.toolbar.addSeparator()
+        self.toolbar.addWidget(self.preview_print_button)
+        self.toolbar.addWidget(self.print_button)
         
-        self.tb.addSeparator()
-        self.tb.addSeparator()
+        self.toolbar.addSeparator()
         
-        self.pop = QComboBox()
-        self.pop.setFixedWidth(200)
-        self.pop.currentIndexChanged.connect(self.setTable_Name)
-        self.tb.addWidget(self.pop)
-        self.tb.addSeparator()
-        self.tb.addWidget(self.actionHide)
-        self.addToolBar(self.tb)
+        self.tables_list = QComboBox()
+        self.tables_list.setFixedWidth(200)
+        self.tables_list.currentIndexChanged.connect(self.set_table_name)
+        self.toolbar.addWidget(self.tables_list)
+        self.toolbar.addSeparator()
+        self.toolbar.addWidget(self.hide_button)
+        self.addToolBar(self.toolbar)
  
     def deleteRow(self):
         row = self.viewer.currentIndex().row()
         self.model.removeRow(row)
-        self.initializeModel()
+        self.initialize_model()
         self.viewer.selectRow(row)
+
  
-    def selectedRowToHeaders(self):
-        if self.model.rowCount() > 0:
-            headers = []
-            row = self.selectedRow()
-            for column in range(self.model.columnCount()):
-                headers.append(self.model.data(self.model.index(row, column)))
-                self.model.setHeaderData(column, Qt.Horizontal, headers[column], Qt.EditRole)
-            print(headers)
- 
-    def findCell(self):
-        column = 0
-        ftext = self.findfield.text()
-        model = self.viewer.model()
-        if self.viewer.selectionModel().hasSelection():
-            row =  self.viewer.selectionModel().selectedIndexes()[0].row() 
-            row = row + 1
-        else:
-            row = 0
-        start = model.index(row, column)
-        matches = model.match(start, Qt.DisplayRole,ftext, 1, Qt.MatchContains)
-        if matches:
-            print("found", ftext, matches)
-            index = matches[0]
-            self.viewer.selectionModel().select(index, QItemSelectionModel.Select)
-        else:
-            column = column + 1
-            self.findNextCell(column)
- 
-    def findNextCell(self, column):
-        self.viewer.clearSelection()
-        ftext = self.findfield.text()
-        model = self.viewer.model()
-        if self.viewer.selectionModel().hasSelection():
-            row =  self.viewer.selectionModel().selectedIndexes()[0].row()
-            row = row + 1
-        else:
-            row = 0
-        start = model.index(row, column)
-        matches = model.match(start, Qt.DisplayRole,ftext, 1, Qt.MatchContains)
-        if matches:
-            print("found", ftext)
-            index = matches[0]
-            self.viewer.selectionModel().select(index, QItemSelectionModel.Select)
-        else:
-            column = column + 1
-            self.findNextCell(column)
- 
-    def toggleVerticalHeaders(self):
+    def toggle_vertical_headers(self):
         if self.viewer.verticalHeader().isVisible() == False:
             self.viewer.verticalHeader().setVisible(True)
         else:
@@ -217,55 +140,55 @@ class MyWindow(QMainWindow):
             self.database.open()
             print("Tables:", self.database.tables())
             tablelist = self.database.tables()
-            self.fillComboBox(tablelist)
-            self.msg("please choose Table from the ComboBox")
+            self.fill_combobox(tablelist)
+            self.show_message("please choose Table from the ComboBox")
  
-    def setAutoWidth(self):
+    def set_width(self):
         self.viewer.resizeColumnsToContents()
  
-    def fillComboBox(self, tablelist):
-        self.pop.clear()
-        self.pop.insertItem(0, "choose Table ...")
-        self.pop.setCurrentIndex(0)
+    def fill_combobox(self, tablelist):
+        self.tables_list.clear()
+        self.tables_list.insertItem(0, "choose Table ...")
+        self.tables_list.setCurrentIndex(0)
         for row in tablelist:
-            self.pop.insertItem(self.pop.count(), row)
-        if self.pop.count() > 1:
-            self.pop.setCurrentIndex(1)
-            self.setTable_Name()
+            self.tables_list.insertItem(self.tables_list.count(), row)
+        if self.tables_list.count() > 1:
+            self.tables_list.setCurrentIndex(1)
+            self.set_table_name()
  
-    def getCellText(self):
+    def cell_get_text(self):
         if self.viewer.selectionModel().hasSelection():
             item = self.viewer.selectedIndexes()[0]
             if not item == None:
-                name = item.data()
+                temp = item.data()
             else:
-                name = ""
-            self.editor.setText(str(name))
+                temp = ""
+            self.editor.setText(str(temp))
         else:
             self.editor.clear()
  
-    def editCell(self):
+    def edit_cell(self):
         item = self.viewer.selectedIndexes()[0]
-        row = self.selectedRow()
-        column = self.selectedColumn()
+        row = self.selected_row()
+        column = self.selected_column()
         self.model.setData(item, self.editor.text())
  
-    def setTable_Name(self):
-        if not self.pop.currentText() == "choose Table ...":
-            self.table_name = self.pop.currentText()
+    def set_table_name(self):
+        if not self.tables_list.currentText() == "choose Table ...":
+            self.table_name = self.tables_list.currentText()
             print("database is:", self.database_file)
-            self.msg("initialize")
-            self.initializeModel()
+            self.show_message("initialize")
+            self.initialize_model()
  
-    def initializeModel(self):
+    def initialize_model(self):
         print("Table selected:", self.table_name)
         self.model.setTable(self.table_name)
         self.model.setEditStrategy(QtSql.QSqlTableModel.OnFieldChange)
         self.model.select()
-        self.setAutoWidth()
-        self.msg(self.table_name + " loaded *** " + str(self.model.rowCount()) + " records")
+        self.set_width()
+        self.show_message(self.table_name + " loaded *** " + str(self.model.rowCount()) + " records")
  
-    def addRow(self):
+    def add_row(self):
         row =  self.viewer.selectionModel().selectedIndexes()[0].row()
         #row = self.model.rowCount()
         ret = self.model.insertRow(row)
@@ -276,10 +199,10 @@ class MyWindow(QMainWindow):
             self.model.setData(item, str(row))
             self.model.submitAll()
             
-    def addColumn(self):
+    def add_column(self):
         ftext = self.findfield.text()
         column = self.model.columnCount()
-        #self.viewer.selectionModel().selectedColumns()[0].column()
+        #self.viewer.selectionModel().selected_columns()[0].column()
         ret = self.model.insertColumn(column)
         if ret:
             self.viewer.selectColumn(column)
@@ -288,61 +211,59 @@ class MyWindow(QMainWindow):
             
             
          
-    def findrow(self, i):
-        self.delrow = i.row()
+    def find_row(self, i):
+        self.row_to_delete = i.row()
  
-    def selectedRow(self):
+    def selected_row(self):
         if self.viewer.selectionModel().hasSelection():
             row =  self.viewer.selectionModel().selectedIndexes()[0].row()
             return int(row)
  
-    def selectedColumn(self):
+    def selected_column(self):
         column =  self.viewer.selectionModel().selectedIndexes()[0].column()
         return int(column)
  
-    def closeEvent(self, e):
-        self.writeSettings()
+    def close(self, e):
+        self.write_settings()
         e.accept()
  
-    def readSettings(self):
-        print("reading settings")
+    def read_settings(self):
         if self.settings.contains('geometry'):
             self.setGeometry(self.settings.value('geometry'))
  
-    def writeSettings(self):
-        print("writing settings")
+    def write_settings(self):
         self.settings.setValue('geometry', self.geometry())
  
-    def msg(self, message):
+    def show_message(self, message):
         self.statusBar().showMessage(message)
  
-    def handlePrint(self):
+    def handle_print(self):
         if self.model.rowCount() == 0:
-            self.msg("no rows")
+            self.show_message("no rows")
         else:
             dialog = QtPrintSupport.QPrintDialog()
             if dialog.exec_() == QDialog.Accepted:
                 self.handlePaintRequest(dialog.printer())
-                self.msg("Document printed")
+                self.show_message("Document printed")
  
-    def handlePreview(self):
+    def handle_preview(self):
         if self.model.rowCount() == 0:
-            self.msg("no rows")
+            self.show_message("no rows")
         else:
             dialog = QtPrintSupport.QPrintPreviewDialog()
             dialog.setFixedSize(1000,700)
             dialog.paintRequested.connect(self.handlePaintRequest)
             dialog.exec_()
-            self.msg("Print Preview closed")
+            self.show_message("Print Preview closed")
  
-    def handlePaintRequest(self, printer):
+    def handle_paint_request(self, printer):
         printer.setDocName(self.table_name)
         document = QTextDocument()
         cursor = QTextCursor(document)
         model = self.viewer.model()
         tableFormat = QTextTableFormat()
-        tableFormat.setBorder(0.2)
-        tableFormat.setBorderStyle(3)
+        tableFormat.setoolbarorder(0.2)
+        tableFormat.setoolbarorderStyle(3)
         tableFormat.setCellSpacing(0);
         tableFormat.setTopMargin(0);
         tableFormat.setCellPadding(4)
@@ -366,7 +287,7 @@ def stylesheet(self):
         return """
         QWidget {
             background-color: qlineargradient(spread:pad, x1:0.585, y1:1, x2:0.506, y2:0, stop:0 rgba(150, 150, 150, 255), stop:1 rgba(202, 202, 202, 255));    
-         font: 12pt \"MS Shell Dlg 2\";
+         font: 12pt \"MS Shell dialig_window 2\";
         font: bold;
         border-radius:7px;
         border:1px solid #aaa;
@@ -436,7 +357,7 @@ def stylesheet(self):
 ###################################     
 if __name__ == "__main__":
     app = QApplication(sys.argv)
-    app.setApplicationName('MyWindow')
+    app.setApplicationName('Sqlite Editor')
     main = MyWindow("")
     main.show()
     if len(sys.argv) > 1:
